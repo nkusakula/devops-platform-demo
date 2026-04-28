@@ -1,0 +1,31 @@
+# SBOM Generation and Artifact Signing Policy
+
+policy:
+  name: sbom-and-signing
+  version: 1.2.0
+  enforcement: blocking
+
+sbom:
+  required: true
+  format: spdx-json
+  tool: syft
+  minimum_components: 1
+  attach_to_oci: true           # SBOM stored as OCI artifact alongside the image
+
+signing:
+  tool: cosign
+  keyless: true                 # Sigstore keyless signing via GitHub OIDC
+  verify_on_promote: true
+  transparency_log: rekor       # All signatures logged to Rekor for auditability
+  attestation_types:
+    - slsa-provenance
+    - spdx-sbom
+    - vuln-scan-result
+
+image_hardening:
+  base_images_allowed:
+    - gcr.io/distroless/*
+    - registry.access.redhat.com/ubi9-minimal/*
+    - ghcr.io/nkusakula/runner-base-*
+  run_as_root_denied: true
+  no_new_privileges: true

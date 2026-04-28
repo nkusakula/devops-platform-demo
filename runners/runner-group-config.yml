@@ -1,0 +1,46 @@
+# Runner Group Configuration
+# Applied via GitHub API: PATCH /orgs/{org}/actions/runner-groups/{id}
+# Docs: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners-with-actions-runner-controller
+
+runner_groups:
+  - name: prod-runners-us-east
+    visibility: selected           # Only selected repositories can use this group
+    selected_repositories:
+      - platform-services
+      - devops-platform-demo
+      - payments-service
+      - identity-service
+    allows_public_repositories: false
+    restricted_to_workflows: true  # Workflow-level isolation
+    default: false
+    architectures: [amd64, arm64]
+    region: us-east-1
+    labels:
+      environment: production
+      compliance: pci-dss
+
+  - name: prod-runners-eu-west
+    visibility: selected
+    selected_repositories:
+      - platform-services
+      - devops-platform-demo
+      - payments-service
+      - identity-service
+    allows_public_repositories: false
+    restricted_to_workflows: true
+    default: false
+    architectures: [amd64, arm64]
+    region: eu-west-1
+    labels:
+      environment: production
+      compliance: pci-dss
+      gdpr: true
+
+  - name: dev-runners-shared
+    visibility: all                # All repositories in the org
+    allows_public_repositories: false
+    default: true
+    architectures: [amd64]
+    region: us-east-1
+    labels:
+      environment: development

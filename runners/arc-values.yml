@@ -1,0 +1,41 @@
+# Actions Runner Controller (ARC) Helm values
+# Deploy: helm upgrade --install arc-us-east-amd64 \
+#   oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+#   -f runners/arc-values.yml
+
+# Scale set name must match the runner group label referenced in workflow YAML
+runnerScaleSetName: prod-runners-us-east-amd64
+
+githubConfigUrl: https://github.com/nkusakula
+githubConfigSecret: arc-github-app-secret
+
+template:
+  spec:
+    containers:
+      - name: runner
+        image: ghcr.io/nkusakula/runner-base-amd64:latest  # Hardened, minimal base image
+        resources:
+          requests:
+            cpu: "2"
+            memory: "4Gi"
+          limits:
+            cpu: "4"
+            memory: "8Gi"
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+    nodeSelector:
+      kubernetes.io/arch: amd64
+      node-role: runner
+    tolerations:
+      - key: runner-pool
+        operator: Equal
+        value: prod
+        effect: NoSchedule
+
+minRunners: 2
+maxRunners: 20
+ephemerals: true  # Fresh environment for every job
