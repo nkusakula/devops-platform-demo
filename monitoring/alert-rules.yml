@@ -1,0 +1,60 @@
+# Alerting Rules for DevOps Platform
+# Integrated with PagerDuty and Slack
+
+groups:
+  - name: platform-health
+    interval: 1m
+    rules:
+      - alert: RunnerPoolDepleted
+        expr: gha_runner_available_count{group=~"prod-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Production runner pool {{ $labels.group }} has no available runners"
+          runbook: https://github.com/nkusakula/devops-platform-demo/wiki/runbook-runner-pool
+
+      - alert: HighChangeFailureRate
+        expr: |
+          (
+            sum(rate(deployment_failures_total[24h]))
+            /
+            sum(rate(deployments_total[24h]))
+          ) > 0.15
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Change failure rate exceeded 15% in the last 24 hours"
+
+      - alert: ArtifactRegistryUnreachable
+        expr: up{job="ghcr-probe"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "GitHub Container Registry is unreachable from {{ $labels.region }}"
+
+      - alert: LeadTimeRegression
+        expr: |
+          histogram_quantile(0.95, rate(lead_time_seconds_bucket[7d])) >
+          histogram_quantile(0.95, rate(lead_time_seconds_bucket[7d] offset 7d)) * 1.20
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "P95 lead time for changes degraded by >20% week-over-week"
+
+      - alert: RegionHealthFailure
+        expr: region_health_score{region=~"us-east|eu-west"} < 0.5
+        for: 3m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Region {{ $labels.region }} health score is critically low – DR failover may be required"
+          runbook: https://github.com/nkusakula/devops-platform-demo/wiki/runbook-dr-failover

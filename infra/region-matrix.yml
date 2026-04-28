@@ -1,0 +1,39 @@
+# Region to Runner Pool Mapping
+# Used by dr-failover.yml to determine rerouting targets
+
+regions:
+  us-east:
+    status: active
+    runner_groups:
+      - name: prod-runners-us-east-amd64
+        arch: amd64
+        min_runners: 2
+        max_runners: 20
+        kubernetes_cluster: aks-us-east-prod
+      - name: prod-runners-us-east-arm64
+        arch: arm64
+        min_runners: 1
+        max_runners: 10
+        kubernetes_cluster: aks-us-east-prod
+    artifact_registry: ghcr.io   # geo-replicated
+    cache_endpoint: https://cache.us-east.internal
+    vault_endpoint: https://vault.us-east.internal
+    failover_target: eu-west
+
+  eu-west:
+    status: active
+    runner_groups:
+      - name: prod-runners-eu-west-amd64
+        arch: amd64
+        min_runners: 2
+        max_runners: 20
+        kubernetes_cluster: aks-eu-west-prod
+      - name: prod-runners-eu-west-arm64
+        arch: arm64
+        min_runners: 1
+        max_runners: 10
+        kubernetes_cluster: aks-eu-west-prod
+    artifact_registry: ghcr.io
+    cache_endpoint: https://cache.eu-west.internal
+    vault_endpoint: https://vault.eu-west.internal
+    failover_target: us-east
