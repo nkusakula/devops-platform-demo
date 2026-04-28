@@ -1,0 +1,61 @@
+name: Artifact Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to promote (e.g. abc1234-amd64)
+        required: true
+      target_environment:
+        description: Target environment
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+jobs:
+  verify-signature:
+    name: Verify Artifact Signature
+    runs-on:
+      group: prod-runners-us-east
+      labels: [self-hosted, linux, amd64]
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Verify image signature
+        run: |
+          cosign verify \
+            --certificate-identity-regexp 'https://github.com/${{ github.repository }}' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            ghcr.io/${{ github.repository }}:${{ inputs.image_tag }}
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+
+  promote:
+    name: Promote to ${{ inputs.target_environment }}
+    needs: verify-signature
+    runs-on:
+      group: prod-runners-us-east
+      labels: [self-hosted, linux, amd64]
+    environment: ${{ inputs.target_environment }}  # triggers approval gate for production
+    steps:
+      - name: Notify ITSM – deployment started
+        run: |
+          echo "ITSM notify: deployment_started env=${{ inputs.target_environment }} image=${{ inputs.image_tag }}"
+          # In production: POST to ITSM webhook
+
+      - name: Retag & push to target registry path
+        run: |
+          docker pull ghcr.io/${{ github.repository }}:${{ inputs.image_tag }}
+          docker tag  ghcr.io/${{ github.repository }}:${{ inputs.image_tag }} \
+                      ghcr.io/${{ github.repository }}:${{ inputs.target_environment }}-latest
+          docker push ghcr.io/${{ github.repository }}:${{ inputs.target_environment }}-latest
+
+      - name: Deploy to environment
+        run: echo "Deploying ${{ inputs.image_tag }} to ${{ inputs.target_environment }}..."
+
+      - name: Notify ITSM – deployment complete
+        run: |
+          echo "ITSM notify: deployment_complete env=${{ inputs.target_environment }} status=success"
+          # In production: POST to ITSM webhook

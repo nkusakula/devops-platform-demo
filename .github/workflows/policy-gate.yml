@@ -1,0 +1,59 @@
+name: Policy Gate
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call:
+
+jobs:
+  opa-policy-check:
+    name: OPA Policy Evaluation
+    runs-on:
+      group: prod-runners-us-east
+      labels: [self-hosted, linux, amd64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install OPA
+        run: |
+          curl -L -o /usr/local/bin/opa \
+            https://openpolicyagent.org/downloads/latest/opa_linux_amd64_static
+          chmod +x /usr/local/bin/opa
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+          format: json
+          output: trivy-results.json
+          exit-code: '0'   # OPA decides pass/fail
+
+      - name: Evaluate OPA release gate
+        run: |
+          opa eval \
+            --data policies/opa/release-gate.rego \
+            --input trivy-results.json \
+            --format pretty \
+            'data.platform.release.deny' | tee opa-output.json
+          deny_count=$(cat opa-output.json | grep -c '"msg"' || true)
+          if [ "$deny_count" -gt 0 ]; then
+            echo '::error::OPA policy gate FAILED – see opa-output.json for details'
+            exit 1
+          fi
+
+      - name: Upload policy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-evidence-${{ github.sha }}
+          path: |
+            sbom.spdx.json
+            trivy-results.json
+            opa-output.json

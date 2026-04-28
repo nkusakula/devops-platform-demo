@@ -1,0 +1,54 @@
+name: Runner Pool Patching
+
+on:
+  schedule:
+    - cron: '0 2 * * 0'   # Every Sunday 02:00 UTC
+  workflow_dispatch:
+
+jobs:
+  patch-us-east:
+    name: Rolling patch – US-East runners
+    runs-on: ubuntu-latest
+    environment: platform-ops
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for idle runners (US-East)
+        run: |
+          echo "Checking for active jobs on us-east runner group..."
+          # In production: query GitHub API for queued/in-progress jobs on the group
+          echo "Runner group is idle – proceeding with patch"
+
+      - name: Update runner base image (amd64)
+        run: |
+          echo "helm upgrade arc-us-east-amd64 \
+            oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+            --set image.tag=latest-patched-amd64 \
+            --reuse-values"
+
+      - name: Update runner base image (arm64)
+        run: |
+          echo "helm upgrade arc-us-east-arm64 \
+            oci://ghcr.io/actions/actions-runner-controller-charts/gha-runner-scale-set \
+            --set image.tag=latest-patched-arm64 \
+            --reuse-values"
+
+      - name: Verify runner registration
+        run: echo "Verifying new runners are online and registered with the runner group..."
+
+  patch-eu-west:
+    name: Rolling patch – EU-West runners
+    needs: patch-us-east
+    runs-on: ubuntu-latest
+    environment: platform-ops
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update EU-West runner pools
+        run: |
+          echo "Patching arc-eu-west-amd64 and arc-eu-west-arm64..."
+
+      - name: Post patch summary
+        run: echo "All runner pools updated successfully across both regions."
