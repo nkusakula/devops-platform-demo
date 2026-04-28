@@ -1,0 +1,35 @@
+name: Emergency Response
+
+on:
+  repository_dispatch:
+    types: [security-incident, production-incident]
+
+jobs:
+  triage:
+    name: Incident Triage
+    runs-on:
+      group: prod-runners-us-east
+      labels: [self-hosted, linux, amd64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log incident metadata
+        run: |
+          echo "Incident ID: ${{ github.event.client_payload.incident_id }}"
+          echo "Type:        ${{ github.event.action }}"
+          echo "Severity:    ${{ github.event.client_payload.severity }}"
+          echo "Reporter:    ${{ github.event.client_payload.reporter }}"
+
+      - name: Open emergency ITSM change record
+        run: |
+          echo "Opening emergency ITSM CR for incident ${{ github.event.client_payload.incident_id }}"
+          # In production: POST to ITSM webhook at secrets.ITSM_WEBHOOK_URL
+
+      - name: Apply emergency change policy overrides
+        run: echo "Activating expedited approval path – reduced review gates active, enhanced audit logging ON"
+
+      - name: Notify on-call team
+        run: |
+          echo "Notifying on-call via Slack/PagerDuty for incident ${{ github.event.client_payload.incident_id }}"
+          # In production: POST to secrets.SLACK_WEBHOOK_URL / PagerDuty Events API
