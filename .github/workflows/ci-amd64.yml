@@ -1,0 +1,80 @@
+name: CI – amd64
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build & Test (amd64)
+    runs-on:
+      group: prod-runners-us-east
+      labels: [self-hosted, linux, amd64]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write        # OIDC for dynamic secret injection
+      security-events: write  # GHAS code scanning
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # needed for accurate lead-time calculation
+
+      - name: Restore dependency cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm test -- --coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-amd64
+          path: coverage/
+
+      - name: Run CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: javascript
+
+      - name: Build container image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            -t ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64 .
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push image to GHCR
+        run: docker push ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image with Cosign (keyless)
+        run: |
+          cosign sign --yes \
+            ghcr.io/${{ github.repository }}:${{ github.sha }}-amd64
+        env:
+          COSIGN_EXPERIMENTAL: '1'

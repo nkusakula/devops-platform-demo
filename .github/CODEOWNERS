@@ -1,0 +1,18 @@
+# Global ownership – platform team reviews all pipeline and policy changes
+* @nkusakula/platform-team
+
+# CI/CD workflows
+.github/workflows/ @nkusakula/platform-team
+
+# Policy-as-code
+policies/ @nkusakula/platform-team @nkusakula/security-team
+
+# Runner configuration
+runners/ @nkusakula/platform-team
+
+# Infrastructure
+infra/ @nkusakula/platform-team
+
+# Secrets and ITSM docs
+secrets/ @nkusakula/security-team
+itsm/ @nkusakula/platform-team @nkusakula/change-advisory-board
